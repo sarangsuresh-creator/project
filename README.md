@@ -15,3 +15,5 @@ for that i need a timeperiod of 1ms and the duty cycle should be in the range of
 5) button debouncing: there may be a chance that when we press the button multiple triggers may occur so to over come this we have to do some filtering methods.the one i chose is when an interrupt a flag is raised and also HAL_GetTick() timer current value is stored. then in the main function we check for the same edge state every 5ms for 10 concecutive times and if the result can be greater 7  then we can predict the button is actually pressed overcoming debouncing effect
 
 NOTE: here i have given all the functions between the begin 4 and end 4
+
+[![Video](https://img.shields.io/badge/▶-WatchVideo-blue?style=flat-square)](https://drive.google.com/file/d/10Bbxm29KfHNmcitlNGRV3ZlTL9bVwyIK/view?usp=drive_link)
