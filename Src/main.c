@@ -69,21 +69,31 @@ static void MX_TIM3_Init(void);
 void ADC_Process(void);
 void PWM_Process(void);
 void UART_Process(void);
+void button_debounce_check(void);
 
 int len;
 
-uint16_t adc_buffer[16];
-
 char uart_tx_buffer[32];
+
+uint32_t current_time = 0;
 
 uint32_t last_uart_time = 0;
 
 uint16_t filtered_adc = 0;
 
+uint16_t adc_buffer[16];
+
+uint8_t system_paused = 0;
+
+uint8_t count1 = 0;
+uint8_t count2 = 0;
+
+volatile uint32_t last_button_time=0;
 volatile uint8_t adc_half_ready = 0;
 volatile uint8_t adc_full_ready = 0;
 volatile uint8_t uart_tx_complete = 1;
-volatile uint8_t system_paused = 0;
+volatile uint8_t button_pending = 0;
+
 /* USER CODE END 0 */
 
 /**
@@ -122,7 +132,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc_buffer, 16);
-  HAL_TIM_Base_Init(&htim3);
   HAL_TIM_Base_Start(&htim3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   /* USER CODE END 2 */
@@ -137,6 +146,7 @@ int main(void)
 	   ADC_Process();
 	   UART_Process();
 	   PWM_Process();
+       button_debounce_check();
 
   }
 
@@ -323,7 +333,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 9600;
+  huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -414,19 +424,17 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 }
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    static uint32_t last_button_time = 0;
+
 
     if (GPIO_Pin == GPIO_PIN_0)
     {
-        uint32_t current_time = HAL_GetTick();
+    	last_button_time = HAL_GetTick();
+    	button_pending =1;
 
-        if ((current_time - last_button_time) >= 200)
-        {
-            system_paused ^= 1;
-            last_button_time = current_time;
-        }
     }
-}
+
+    }
+
 
 void ADC_Process(void){
 
@@ -485,6 +493,27 @@ void PWM_Process(void){
 		      {
 		          __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,0);
 		      }
+}
+void button_debounce_check(void){
+	   current_time = HAL_GetTick();
+	       if (((current_time - last_button_time) >=5) && (button_pending == 1))
+	       {
+	    	   count2++;
+	    	   if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)== GPIO_PIN_SET){
+	    		 count1++;
+	    	   }
+	    	   if(count2 == 10) {
+	    		   if(count1 >= 7){
+	    			 system_paused ^= 1;
+
+	    		   }
+	    		   button_pending = 0;
+	    		   count1 = count2 = 0;
+	    	   }
+
+
+	    	   last_button_time = current_time ;
+	  }
 }
 
 
