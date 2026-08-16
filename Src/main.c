@@ -67,21 +67,21 @@ static void MX_TIM3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void ADC_Process(void);
-void PWM_Process(void);
-void UART_Process(void);
+unsigned int PWM_Process(void);
+void UART_Process(unsigned int pwm);
 void button_debounce_check(void);
 
 int len;
 
 char uart_tx_buffer[32];
 
+uint16_t adc_buffer[16];
+
 uint32_t current_time = 0;
 
 uint32_t last_uart_time = 0;
 
 uint16_t filtered_adc = 0;
-
-uint16_t adc_buffer[16];
 
 uint8_t system_paused = 0;
 
@@ -144,8 +144,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	   ADC_Process();
-	   UART_Process();
-	   PWM_Process();
+	   UART_Process(PWM_Process());
        button_debounce_check();
 
   }
@@ -470,22 +469,23 @@ void ADC_Process(void){
 
 
 }
-void UART_Process(void){
+void UART_Process(unsigned int pwmDC){
 	 if ((system_paused == 0) &&(HAL_GetTick() - last_uart_time >= 100) && (uart_tx_complete == 1))
 		      {
 		          last_uart_time = HAL_GetTick();
 
-		          int len = sprintf(uart_tx_buffer,"ADC AVG: %u\r\n",filtered_adc);
+		          int len = sprintf(uart_tx_buffer,"ADC AVG: %u  PWM: %u %%\r\n",filtered_adc,pwmDC/10);
 
 		          uart_tx_complete = 0;
 
 		          HAL_UART_Transmit_DMA(&huart1,(uint8_t *)uart_tx_buffer,len);
 		      }
 }
-void PWM_Process(void){
+unsigned int PWM_Process(void){
+	 unsigned int pwm_value=0;
 	 if (system_paused == 0)
 		      {
-		    	  unsigned int pwm_value = (filtered_adc * 1000)/4095;
+		    	  pwm_value = (filtered_adc * 1000)/4095;
 
 		          __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,pwm_value);
 		      }
@@ -493,6 +493,7 @@ void PWM_Process(void){
 		      {
 		          __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,0);
 		      }
+	 return pwm_value;
 }
 void button_debounce_check(void){
 	   current_time = HAL_GetTick();
