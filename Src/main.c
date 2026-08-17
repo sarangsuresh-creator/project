@@ -66,14 +66,23 @@ static void MX_TIM3_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#define FILTER_SIZE 8
 void ADC_Process(void);
 unsigned int PWM_Process(void);
 void UART_Process(unsigned int pwm);
 void button_debounce_check(void);
-
+uint16_t Moving_Average_Filter(uint16_t new_sample);
 int len;
 
 char uart_tx_buffer[32];
+
+uint16_t filter_buffer[FILTER_SIZE]={0};
+
+uint32_t filter_sum = 0;
+
+uint8_t filter_index = 0;
+
+uint8_t filter_count = 0;
 
 uint16_t adc_buffer[16];
 
@@ -441,14 +450,14 @@ void ADC_Process(void){
 		      {
 		          adc_half_ready = 0;
 
-		          uint32_t sum = 0;
+
 
 		          for (int i = 0; i < 8; i++)
 		          {
-		              sum += adc_buffer[i];
+		        	  filtered_adc = Moving_Average_Filter(adc_buffer[i]);
 		          }
 
-		          filtered_adc = sum / 8;
+
 		      }
 
 
@@ -457,14 +466,14 @@ void ADC_Process(void){
 		      {
 		          adc_full_ready = 0;
 
-		          uint32_t sum = 0;
+
 
 		          for (int i = 8; i < 16; i++)
 		          {
-		              sum += adc_buffer[i];
+		        	  filtered_adc = Moving_Average_Filter(adc_buffer[i]);
 		          }
 
-		          filtered_adc = sum / 8;
+
 		      }
 
 
@@ -485,7 +494,7 @@ unsigned int PWM_Process(void){
 	 unsigned int pwm_value=0;
 	 if (system_paused == 0)
 		      {
-		    	  pwm_value = (filtered_adc * 1000)/4095;
+		    	  pwm_value = ((filtered_adc - 60) * 1000)/(4095-60);
 
 		          __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1,pwm_value);
 		      }
@@ -515,6 +524,28 @@ void button_debounce_check(void){
 
 	    	   last_button_time = current_time ;
 	  }
+}
+uint16_t Moving_Average_Filter(uint16_t new_sample)
+{
+    filter_sum -= filter_buffer[filter_index];
+
+    filter_buffer[filter_index] = new_sample;
+
+    filter_sum += new_sample;
+
+    filter_index++;
+
+    if (filter_index >= FILTER_SIZE)
+    {
+        filter_index = 0;
+    }
+
+    if (filter_count < FILTER_SIZE)
+    {
+        filter_count++;
+    }
+
+    return (uint16_t)(filter_sum / filter_count);
 }
 
 
